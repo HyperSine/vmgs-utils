@@ -1,5 +1,6 @@
 #include "crc32.hpp"
 
+#if defined(WIN32)
 #include <windows.h>
 #pragma comment(lib, "ntdll")
 
@@ -20,3 +21,12 @@ namespace vmgs {
         return initial;
     }
 }
+#else
+#include <zlib.h>
+
+namespace vmgs {
+    uint32_t crc32_iso3309(uint32_t initial, const void *data, size_t size) noexcept {
+        return crc32_z(initial, reinterpret_cast<const Bytef*>(data), size);
+    }
+}
+#endif

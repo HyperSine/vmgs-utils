@@ -314,7 +314,7 @@ namespace vmgs {
                     std::make_unique<Win32BlockDevice>(Win32BlockDevice::open(path.cast<std::wstring>(), writable));
 #else
                 auto partition_dev =
-                    std::make_unique<VhdPartitionRef>(*disk_dev, partition);
+                    std::make_unique<UnixBlockDevice>(UnixBlockDevice::open(path.cast<std::string>(), writable));
 #endif
                 auto vmgs_data = std::make_unique<VmgsData>(VmgsData::load_from(*partition_dev));
                 return VmgsIO{ std::move(partition_dev), std::move(vmgs_data) };

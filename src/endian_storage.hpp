@@ -6,6 +6,7 @@
 #include <array>
 #include <span>
 #include <algorithm>
+#include <ranges>
 #include <utility>
 
 #include "concepts.hpp"

@@ -6,6 +6,8 @@
 
 namespace vmgs {
     struct IBlockDevice {
+        virtual ~IBlockDevice() noexcept = default;
+
         [[nodiscard]]
         virtual size_t get_block_size() const = 0;
 

@@ -1,4 +1,5 @@
 #include "IBlockDevice.hpp"
+#include <limits>
 
 namespace vmgs {
     void IBlockDevice::read_blocks(lclosed_interval<uint64_t> lba_range, void* buf) {
