@@ -1,7 +1,7 @@
 import typing
 import json
 
-from ._vmgs import VmgsIO
+from ._vmgs import VmgsIO as VmgsIO
 
 def vmgs_encode(data: typing.Dict[str, typing.Any]) -> bytes:
     return json.dumps(data).encode('utf-16-le') + b'\x00\x00'

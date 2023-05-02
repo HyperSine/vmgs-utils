@@ -267,11 +267,12 @@ namespace vmgs {
                         m_partition_dev->write_blocks(active_locator.allocation_lba(), n, buf_info.ptr);
 
                         std::vector<std::byte> single_block(block_size, std::byte{});
-
                         m_partition_dev->read_blocks(active_locator.allocation_lba() + n, 1, single_block.data());
+
                         memcpy(single_block.data(), reinterpret_cast<std::byte*>(buf_info.ptr) + direct_write_size, indirect_write_size);
                         m_partition_dev->write_blocks(active_locator.allocation_lba() + n, 1, single_block.data());
 
+                        active_locator.update_data_size(static_cast<uint32_t>(buf_info.size), block_size);
                         m_vmgs_data->store_to(*m_partition_dev);
                     } else {
                         throw py::value_error("`buf` is too long.");
