@@ -2,9 +2,8 @@
 
 #if defined(WIN32)
 #include <windows.h>
-#pragma comment(lib, "ntdll")
 
-// available on Windows XP and above
+// available on Windows XP and above, implemented in ntdll.dll
 extern "C" NTSYSAPI
 DWORD NTAPI RtlComputeCrc32(_In_ DWORD Initial, _In_reads_bytes_(BufferSize) LPCVOID Buffer, _In_ ULONG BufferSize);
 

@@ -1,9 +1,5 @@
 #include "init.hpp"
 
-#if defined(WIN32)
-#include <wil/result.h>
-#endif
-
 namespace vmgs {
     pybinder_t::binder_map_t& pybinder_t::registered_binders() {
         static binder_map_t binders;
@@ -17,20 +13,19 @@ PYBIND11_MODULE(_vmgs, m) {
             if (ep) {
                 std::rethrow_exception(ep);
             }
-        }
+        } catch (std::system_error& e) {
 #if defined(WIN32)
-        catch (wil::ResultException& e) {
-            PyErr_SetExcFromWindowsErr(PyExc_WindowsError, e.GetErrorCode());
-        }
+            if (e.code().category() == std::system_category()) {
+                PyErr_SetExcFromWindowsErr(PyExc_WindowsError, e.code().value());
 #else
-        catch (std::system_error& e) {
             if (e.code().category() == std::generic_category()) {
                 PyErr_SetFromErrno(PyExc_OSError);
+#endif
             } else {
                 PyErr_SetString(PyExc_RuntimeError, e.what());
             }
         }
-#endif
+
     });
 
     for (auto& [_, binder] : vmgs::pybinder_t::registered_binders()) {

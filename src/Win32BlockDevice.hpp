@@ -4,7 +4,6 @@
 #include <utility>
 
 #include <windows.h>
-#include <wil/resource.h>
 
 #include "IBlockDevice.hpp"
 
@@ -14,18 +13,40 @@ namespace vmgs {
         static constexpr size_t ALIGNED_BUFFER_SIZE_IN_BLOCKS = 8;
 
     private:
-        wil::unique_hfile m_handle;
+        HANDLE m_handle;
         size_t m_block_size;
         uint64_t m_device_size;
         uintptr_t m_alignment_mask;
 
-        Win32BlockDevice(wil::unique_hfile&& handle, size_t block_size, uint64_t device_size, uintptr_t alignment_mask) noexcept :
-            m_handle{ std::move(handle) },
-            m_block_size{ block_size },
-            m_device_size{ device_size },
-            m_alignment_mask{ alignment_mask } {}
+        Win32BlockDevice() noexcept
+            : m_handle{ INVALID_HANDLE_VALUE }, m_block_size{}, m_device_size{}, m_alignment_mask{} {}
 
     public:
+        Win32BlockDevice(Win32BlockDevice&& other) noexcept :
+            m_handle{ std::exchange(other.m_handle, INVALID_HANDLE_VALUE) },
+            m_block_size{ std::exchange(other.m_block_size, 0) },
+            m_device_size{ std::exchange(other.m_device_size, 0) },
+            m_alignment_mask{ std::exchange(other.m_alignment_mask, 0) } {}
+
+        Win32BlockDevice(const Win32BlockDevice& other) = delete;
+
+        virtual ~Win32BlockDevice() noexcept override {
+            this->close();
+        }
+
+        Win32BlockDevice& operator=(Win32BlockDevice&& other) noexcept(noexcept(this->close())) {
+            this->close();
+
+            m_handle = std::exchange(other.m_handle, INVALID_HANDLE_VALUE);
+            m_block_size = std::exchange(other.m_block_size, 0);
+            m_device_size = std::exchange(other.m_device_size, 0);
+            m_alignment_mask = std::exchange(other.m_alignment_mask, 0);
+
+            return *this;
+        }
+
+        Win32BlockDevice& operator=(const Win32BlockDevice& other) = delete;
+
         [[nodiscard]]
         virtual size_t get_block_size() const override {
             return m_block_size;
@@ -40,9 +61,7 @@ namespace vmgs {
 
         virtual void write_blocks(uint64_t lba, uint32_t n, const void* buf) override;
 
-        void close() {
-            m_handle.reset();
-        }
+        void close();
 
         [[nodiscard]]
         static Win32BlockDevice open(std::wstring_view path, bool writable = false);

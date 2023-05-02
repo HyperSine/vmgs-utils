@@ -7,7 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(pybind11 REQUIRED)
 
 if(WIN32)
-    find_package(wil CONFIG REQUIRED)
     pybind11_add_module(
         _vmgs
             src/concepts.hpp
@@ -32,7 +31,7 @@ if(WIN32)
             src/init.cpp
     )
     target_compile_definitions(_vmgs PRIVATE NOMINMAX _NTSCSI_USER_MODE_)
-    target_link_libraries(_vmgs PRIVATE WIL::WIL virtdisk)
+    target_link_libraries(_vmgs PRIVATE ntdll virtdisk)
 else ()
     find_package(ZLIB REQUIRED)
     pybind11_add_module(

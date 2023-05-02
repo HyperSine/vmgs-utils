@@ -1,10 +1,10 @@
 #pragma once
+#include <cstddef>
+#include <cstdint>
 #include <string>
+#include <utility>
 
 #include <windows.h>
-#include <initguid.h>
-#include <virtdisk.h>
-#include <wil/resource.h>
 
 #include "IBlockDevice.hpp"
 
@@ -15,14 +15,37 @@ namespace vmgs {
         static constexpr size_t SECTOR_SIZE = 512;
 
     private:
-        wil::unique_handle m_handle;
+        HANDLE m_handle;
         uint64_t m_virtual_size;
         uint64_t m_physical_size;
 
-        VhdDisk(wil::unique_handle&& handle, uint64_t virtual_size, uint64_t physical_size) noexcept
-            : m_handle{ std::move(handle) }, m_virtual_size{ virtual_size }, m_physical_size{ physical_size } {}
+        VhdDisk() noexcept
+            : m_handle{ NULL }, m_virtual_size{}, m_physical_size{} {}
 
     public:
+        VhdDisk(VhdDisk&& other) noexcept :
+            m_handle{ std::exchange(other.m_handle, HANDLE{ NULL }) },
+            m_virtual_size{ std::exchange(other.m_virtual_size, 0) },
+            m_physical_size{ std::exchange(other.m_physical_size, 0) } {}
+
+        VhdDisk(const VhdDisk& other) = delete;
+
+        virtual ~VhdDisk() noexcept override {
+            this->close();
+        }
+
+        VhdDisk& operator=(VhdDisk&& other) noexcept(noexcept(this->close())) {
+            this->close();
+
+            m_handle = std::exchange(other.m_handle, HANDLE{ NULL });
+            m_virtual_size = std::exchange(other.m_virtual_size, 0);
+            m_physical_size = std::exchange(other.m_physical_size, 0);
+
+            return *this;
+        }
+
+        VhdDisk& operator=(const VhdDisk& other) = delete;
+
         [[nodiscard]]
         virtual size_t get_block_size() const noexcept override {
             return SECTOR_SIZE;

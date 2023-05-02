@@ -1,11 +1,13 @@
 #include "Win32BlockDevice.hpp"
+#include <cassert>
+#include <system_error>
 
 namespace vmgs {
     void Win32BlockDevice::read_blocks(uint64_t lba, uint32_t n, void* buf) {
         if (0 < n) {
-            THROW_IF_WIN32_BOOL_FALSE(
-                SetFilePointerEx(m_handle.get(), std::bit_cast<LARGE_INTEGER>(lba * m_block_size), NULL, FILE_BEGIN)
-            );
+            if (!SetFilePointerEx(m_handle, std::bit_cast<LARGE_INTEGER>(lba * m_block_size), NULL, FILE_BEGIN)) {
+                throw std::system_error(GetLastError(), std::system_category());
+            }
 
             std::unique_ptr<std::byte[]> aligned_buf;
             void* aligned_ptr = nullptr;
@@ -40,14 +42,14 @@ namespace vmgs {
 
                 DWORD actual_size;
 
-                THROW_IF_WIN32_BOOL_FALSE(
-                    ReadFile(m_handle.get(), aligned_ptr ? aligned_ptr : buf_ptr, expect_size, &actual_size, NULL)
-                );
+                if (!ReadFile(m_handle, aligned_ptr ? aligned_ptr : buf_ptr, expect_size, &actual_size, NULL)) {
+                    throw std::system_error(GetLastError(), std::system_category());
+                }
 
                 if (actual_size == 0) {
-                    THROW_WIN32(ERROR_HANDLE_EOF);
+                    throw std::system_error(ERROR_HANDLE_EOF, std::system_category());
                 } else {
-                    WI_ASSERT(expect_size == actual_size);
+                    assert(expect_size == actual_size);
                 }
 
                 n -= len;
@@ -58,9 +60,9 @@ namespace vmgs {
 
     void Win32BlockDevice::write_blocks(uint64_t lba, uint32_t n, const void* buf) {
         if (0 < n) {
-            THROW_IF_WIN32_BOOL_FALSE(
-                SetFilePointerEx(m_handle.get(), std::bit_cast<LARGE_INTEGER>(lba * m_block_size), NULL, FILE_BEGIN)
-            );
+            if (!SetFilePointerEx(m_handle, std::bit_cast<LARGE_INTEGER>(lba * m_block_size), NULL, FILE_BEGIN)) {
+                throw std::system_error(GetLastError(), std::system_category());
+            }
 
             std::unique_ptr<std::byte[]> aligned_buf;
             void* aligned_ptr = nullptr;
@@ -95,14 +97,14 @@ namespace vmgs {
 
                 DWORD actual_size;
 
-                THROW_IF_WIN32_BOOL_FALSE(
-                    WriteFile(m_handle.get(), aligned_ptr ? aligned_ptr : buf_ptr, expect_size, &actual_size, NULL)
-                );
+                if (!WriteFile(m_handle, aligned_ptr ? aligned_ptr : buf_ptr, expect_size, &actual_size, NULL)) {
+                    throw std::system_error(GetLastError(), std::system_category());
+                }
 
                 if (actual_size == 0) {
-                    THROW_WIN32(ERROR_HANDLE_EOF);
+                    throw std::system_error(ERROR_HANDLE_EOF, std::system_category());
                 } else {
-                    WI_ASSERT(expect_size == actual_size);
+                    assert(expect_size == actual_size);
                 }
 
                 n -= len;
@@ -111,12 +113,21 @@ namespace vmgs {
         }
     }
 
-    Win32BlockDevice Win32BlockDevice::open(std::wstring_view path, bool writable) {
-        wil::unique_hfile handle
-            { CreateFileW(path.data(), GENERIC_READ | (writable ? GENERIC_WRITE : 0), FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL) };
+    void Win32BlockDevice::close() {
+        if (m_handle != INVALID_HANDLE_VALUE) {
+            if (!CloseHandle(m_handle)) {
+                throw std::system_error(GetLastError(), std::system_category());
+            }
+            m_handle = INVALID_HANDLE_VALUE;
+        }
+    }
 
-        if (!handle.is_valid()) {
-            THROW_LAST_ERROR();
+    Win32BlockDevice Win32BlockDevice::open(std::wstring_view path, bool writable) {
+        Win32BlockDevice retval;
+
+        retval.m_handle = CreateFileW(path.data(), GENERIC_READ | (writable ? GENERIC_WRITE : 0), FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+        if (retval.m_handle == INVALID_HANDLE_VALUE) {
+            throw std::system_error(GetLastError(), std::system_category());
         }
 
         DISK_GEOMETRY geometry;
@@ -125,24 +136,19 @@ namespace vmgs {
         {
             DWORD return_length;
 
-            THROW_IF_WIN32_BOOL_FALSE(
-                DeviceIoControl(handle.get(), IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &geometry, sizeof(geometry), &return_length, NULL)
-            );
+            if (!DeviceIoControl(retval.m_handle, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &geometry, sizeof(geometry), &return_length, NULL)) {
+                throw std::system_error(GetLastError(), std::system_category());
+            }
 
-            THROW_IF_WIN32_BOOL_FALSE(
-                DeviceIoControl(handle.get(), IOCTL_DISK_GET_LENGTH_INFO, NULL, 0, &length_information, sizeof(length_information), &return_length, NULL)
-            );
+            if (!DeviceIoControl(retval.m_handle, IOCTL_DISK_GET_LENGTH_INFO, NULL, 0, &length_information, sizeof(length_information), &return_length, NULL)) {
+                throw std::system_error(GetLastError(), std::system_category());
+            }
 
-            THROW_IF_WIN32_BOOL_FALSE(
-                GetFileInformationByHandleEx(handle.get(), FileAlignmentInfo, &file_alignment_info, sizeof(file_alignment_info))
-            );
+            if (!GetFileInformationByHandleEx(retval.m_handle, FileAlignmentInfo, &file_alignment_info, sizeof(file_alignment_info))) {
+                throw std::system_error(GetLastError(), std::system_category());
+            }
         }
 
-        return Win32BlockDevice{
-            std::move(handle),
-            geometry.BytesPerSector,
-            static_cast<uint64_t>(length_information.Length.QuadPart),
-            file_alignment_info.AlignmentRequirement + 1,
-        };
+        return retval;
     }
 }
