@@ -10,76 +10,80 @@
 
 namespace vmgs {
     void VhdDisk::read_blocks(uint64_t lba, uint32_t n, void* buf) {
-        DWORD win32_err;
+        if (0 < n) {
+            DWORD win32_err;
 
-        CDB cdb{};
-        SENSE_DATA sense_data{};
+            CDB cdb{};
+            SENSE_DATA sense_data{};
 
-        RAW_SCSI_VIRTUAL_DISK_PARAMETERS scsi_req{};
-        RAW_SCSI_VIRTUAL_DISK_RESPONSE scsi_rsp;
+            RAW_SCSI_VIRTUAL_DISK_PARAMETERS scsi_req{};
+            RAW_SCSI_VIRTUAL_DISK_RESPONSE scsi_rsp;
 
-        cdb.READ16.OperationCode = SCSIOP_READ16;
-        endian_store<uint64_t, std::endian::big>(cdb.READ16.LogicalBlock, lba);
-        endian_store<uint32_t, std::endian::big>(cdb.READ16.TransferLength, n);
+            cdb.READ16.OperationCode = SCSIOP_READ16;
+            endian_store<uint64_t, std::endian::big>(cdb.READ16.LogicalBlock, lba);
+            endian_store<uint32_t, std::endian::big>(cdb.READ16.TransferLength, n);
 
-        scsi_req.Version = RAW_SCSI_VIRTUAL_DISK_VERSION_1;
-        scsi_req.Version1.RSVDHandle = FALSE;
-        scsi_req.Version1.DataIn = 1;
-        scsi_req.Version1.CdbLength = sizeof(cdb);
-        scsi_req.Version1.SenseInfoLength = sizeof(sense_data);
-        scsi_req.Version1.SrbFlags = 0;
-        scsi_req.Version1.DataTransferLength = n * SECTOR_SIZE;
-        scsi_req.Version1.DataBuffer = buf;
-        scsi_req.Version1.SenseInfo = reinterpret_cast<UCHAR*>(&sense_data);
-        scsi_req.Version1.Cdb = reinterpret_cast<UCHAR*>(&cdb);
+            scsi_req.Version = RAW_SCSI_VIRTUAL_DISK_VERSION_1;
+            scsi_req.Version1.RSVDHandle = FALSE;
+            scsi_req.Version1.DataIn = 1;
+            scsi_req.Version1.CdbLength = sizeof(cdb);
+            scsi_req.Version1.SenseInfoLength = sizeof(sense_data);
+            scsi_req.Version1.SrbFlags = 0;
+            scsi_req.Version1.DataTransferLength = n * SECTOR_SIZE;
+            scsi_req.Version1.DataBuffer = buf;
+            scsi_req.Version1.SenseInfo = reinterpret_cast<UCHAR*>(&sense_data);
+            scsi_req.Version1.Cdb = reinterpret_cast<UCHAR*>(&cdb);
 
-        win32_err = RawSCSIVirtualDisk(m_handle, &scsi_req, RAW_SCSI_VIRTUAL_DISK_FLAG_NONE, &scsi_rsp);
-        if (win32_err != ERROR_SUCCESS) {
-            throw std::system_error(win32_err, std::system_category());
-        }
+            win32_err = RawSCSIVirtualDisk(m_handle, &scsi_req, RAW_SCSI_VIRTUAL_DISK_FLAG_NONE, &scsi_rsp);
+            if (win32_err != ERROR_SUCCESS) {
+                throw std::system_error(win32_err, std::system_category());
+            }
 
-        if (scsi_rsp.Version1.ScsiStatus == SCSISTAT_GOOD) {
-            assert(scsi_rsp.Version1.DataTransferLength == scsi_req.Version1.DataTransferLength);
-        } else {
-            assert(scsi_rsp.Version1.DataTransferLength == 0);
-            throw std::system_error(ERROR_DEVICE_HARDWARE_ERROR, std::system_category());
+            if (scsi_rsp.Version1.ScsiStatus == SCSISTAT_GOOD) {
+                assert(scsi_rsp.Version1.DataTransferLength == scsi_req.Version1.DataTransferLength);
+            } else {
+                assert(scsi_rsp.Version1.DataTransferLength == 0);
+                throw std::system_error(ERROR_DEVICE_HARDWARE_ERROR, std::system_category());
+            }
         }
     }
 
     void VhdDisk::write_blocks(uint64_t lba, uint32_t n, const void* buf) {
-        DWORD win32_err;
+        if (0 < n) {
+            DWORD win32_err;
 
-        CDB cdb{};
-        SENSE_DATA sense_data{};
+            CDB cdb{};
+            SENSE_DATA sense_data{};
 
-        RAW_SCSI_VIRTUAL_DISK_PARAMETERS scsi_req{};
-        RAW_SCSI_VIRTUAL_DISK_RESPONSE scsi_rsp;
+            RAW_SCSI_VIRTUAL_DISK_PARAMETERS scsi_req{};
+            RAW_SCSI_VIRTUAL_DISK_RESPONSE scsi_rsp;
 
-        cdb.WRITE16.OperationCode = SCSIOP_WRITE16;
-        endian_store<uint64_t, std::endian::big>(cdb.WRITE16.LogicalBlock, lba);
-        endian_store<uint32_t, std::endian::big>(cdb.WRITE16.TransferLength, n);
+            cdb.WRITE16.OperationCode = SCSIOP_WRITE16;
+            endian_store<uint64_t, std::endian::big>(cdb.WRITE16.LogicalBlock, lba);
+            endian_store<uint32_t, std::endian::big>(cdb.WRITE16.TransferLength, n);
 
-        scsi_req.Version = RAW_SCSI_VIRTUAL_DISK_VERSION_1;
-        scsi_req.Version1.RSVDHandle = FALSE;
-        scsi_req.Version1.DataIn = 0;
-        scsi_req.Version1.CdbLength = sizeof(cdb);
-        scsi_req.Version1.SenseInfoLength = sizeof(sense_data);
-        scsi_req.Version1.SrbFlags = 0;
-        scsi_req.Version1.DataTransferLength = n * SECTOR_SIZE;
-        scsi_req.Version1.DataBuffer = const_cast<void*>(buf);
-        scsi_req.Version1.SenseInfo = reinterpret_cast<UCHAR*>(&sense_data);
-        scsi_req.Version1.Cdb = reinterpret_cast<UCHAR*>(&cdb);
+            scsi_req.Version = RAW_SCSI_VIRTUAL_DISK_VERSION_1;
+            scsi_req.Version1.RSVDHandle = FALSE;
+            scsi_req.Version1.DataIn = 0;
+            scsi_req.Version1.CdbLength = sizeof(cdb);
+            scsi_req.Version1.SenseInfoLength = sizeof(sense_data);
+            scsi_req.Version1.SrbFlags = 0;
+            scsi_req.Version1.DataTransferLength = n * SECTOR_SIZE;
+            scsi_req.Version1.DataBuffer = const_cast<void*>(buf);
+            scsi_req.Version1.SenseInfo = reinterpret_cast<UCHAR*>(&sense_data);
+            scsi_req.Version1.Cdb = reinterpret_cast<UCHAR*>(&cdb);
 
-        win32_err = RawSCSIVirtualDisk(m_handle, &scsi_req, RAW_SCSI_VIRTUAL_DISK_FLAG_NONE, &scsi_rsp);
-        if (win32_err != ERROR_SUCCESS) {
-            throw std::system_error(win32_err, std::system_category());
-        }
+            win32_err = RawSCSIVirtualDisk(m_handle, &scsi_req, RAW_SCSI_VIRTUAL_DISK_FLAG_NONE, &scsi_rsp);
+            if (win32_err != ERROR_SUCCESS) {
+                throw std::system_error(win32_err, std::system_category());
+            }
 
-        if (scsi_rsp.Version1.ScsiStatus == SCSISTAT_GOOD) {
-            assert(scsi_rsp.Version1.DataTransferLength == scsi_req.Version1.DataTransferLength);
-        } else {
-            assert(scsi_rsp.Version1.DataTransferLength == 0);
-            throw std::system_error(ERROR_DEVICE_HARDWARE_ERROR, std::system_category());
+            if (scsi_rsp.Version1.ScsiStatus == SCSISTAT_GOOD) {
+                assert(scsi_rsp.Version1.DataTransferLength == scsi_req.Version1.DataTransferLength);
+            } else {
+                assert(scsi_rsp.Version1.DataTransferLength == 0);
+                throw std::system_error(ERROR_DEVICE_HARDWARE_ERROR, std::system_category());
+            }
         }
     }
 

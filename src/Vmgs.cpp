@@ -293,6 +293,8 @@ namespace vmgs {
                     { 0x700f0c12, 0x1515, 0x4e4d, { 0x8d, 0x32, 0x53, 0xf6, 0x85, 0xbf, 0x44, 0xaf } };
 
                 auto disk_dev = std::make_unique<VhdDisk>(VhdDisk::open(path.cast<std::wstring>()));
+                disk_dev->attach();
+
                 auto disk_gpt = Gpt::load_from(*disk_dev);
 
                 for (const auto& partition : disk_gpt.partitions()) {
